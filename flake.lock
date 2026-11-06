@@ -1,0 +1,63 @@
+{
+  "nodes": {
+    "iroh-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792379231,
+        "narHash": "sha256-sStcLLhmojsm8Xf3OVr5Qj64bQmUiZl0DOtpPY1AwmU=",
+        "owner": "rayfish",
+        "repo": "iroh",
+        "rev": "9dab676bb935caeddde67af273fcdc7d61daf6fc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rayfish",
+        "repo": "iroh",
+        "rev": "9dab676bb935caeddde67af273fcdc7d61daf6fc",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1793795574,
+        "narHash": "sha256-pgG/CO+txdf2sA2z6DsM+2G3F9ajfIp/3BMC4wfKMDY=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "13e53762c5afaf384d4614e94527a9ccfafe41d0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "rayfish-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793875189,
+        "narHash": "sha256-GkL2DwSJpKcG58L56rmR75iMij0X6OHGjuHDs+4g66U=",
+        "owner": "rayfish",
+        "repo": "rayfish",
+        "rev": "c29c4a17d9ba76ef30dd9e307f3ba0cb1e4efaba",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rayfish",
+        "ref": "v0.5.16",
+        "repo": "rayfish",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "iroh-src": "iroh-src",
+        "nixpkgs": "nixpkgs",
+        "rayfish-src": "rayfish-src"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
