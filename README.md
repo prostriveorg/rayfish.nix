@@ -37,10 +37,19 @@ upstream, so treat this packaging as experimental too.
               server.allows."*" = "tcp:22,tcp:443";
             };
 
-            # One-time declarative joins. The key is read from disk at runtime.
+            # One-time declarative joins.
+            #
+            # A public room id can be declared inline; it is not a secret.
+            # On a closed network the coordinator still has to admit the node.
             networks.lab = {
-              keyFile = "/run/secrets/rayfish-lab-key";
+              key = "6b08e1159e5c1b8442183c2214385cdf770170e7ccb53c757cd7c9aeae686e82";
               hostname = "server";
+            };
+
+            # A secret invite/key must stay out of the Nix store.
+            networks.other = {
+              keyFile = "/run/secrets/rayfish-other-key";
+              hostname = "server-2";
             };
           };
         }
@@ -65,10 +74,15 @@ settings through the daemon's own IPC surface.
 - **Joins are one-time.** `services.rayfish.networks.<name>` joins only when the
   local network name is not already saved. Removing a network remains
   `ray leave <name>` or `ray nuke <name>`.
-- **Join keys are secrets.** Use `keyFile` with a string path such as
-  `"/run/secrets/rayfish-lab-key"` (sops-nix, agenix, etc.). Do not use a Nix
-  path literal: it would be copied into the world-readable store. The service
-  runs as root, so the file may be root-only.
+- **Room ids are public; invites/keys are secret.** Use `key` for a network's
+  public room id. Use `keyFile` with a string path such as
+  `"/run/secrets/rayfish-lab-key"` (sops-nix, agenix, etc.) for a secret invite
+  or key. Do not use a Nix path literal for a secret: it would be copied into
+  the world-readable store. The service runs as root, so the file may be
+  root-only. Set exactly one of `key` or `keyFile` per network.
+- **A room-id join on a closed network is pending** until a coordinator admits
+  it (`ray requests <network>` then `ray requests <network> accept <id>`). A
+  hostname-bound invite can admit without that manual step.
 - **Do not overlap `networks` and `apply.spec.networks`.** `ray apply` creates
   coordinator networks; `networks` joins existing ones. The module rejects an
   overlap when the spec is supplied inline.
@@ -94,6 +108,7 @@ settings through the daemon's own IPC surface.
 | `services.rayfish.apply.specFile` | Path to an existing `ray apply` YAML spec. |
 | `services.rayfish.apply.prune` | Pass `--prune` to `ray apply`. |
 | `services.rayfish.apply.inviteMissing` | Pass `--invite-missing` to `ray apply`. |
+| `services.rayfish.networks.<name>.key` | Public network room id. |
 | `services.rayfish.networks.<name>.keyFile` | Secret file containing a network key or invite code. |
 | `services.rayfish.networks.<name>.hostname` | Hostname on the joined network. |
 | `services.rayfish.networks.<name>.autoAcceptFirewall` | Auto-install suggested firewall rules. |

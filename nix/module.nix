@@ -74,13 +74,17 @@ let
       "${lib.concatStringsSep " " [
         "join_network"
         (lib.escapeShellArg name)
-        (lib.escapeShellArg net.keyFile)
+        (lib.escapeShellArg (if net.key == null then "" else net.key))
+        (lib.escapeShellArg (if net.keyFile == null then "" else net.keyFile))
         (lib.escapeShellArg (if net.hostname == null then "" else net.hostname))
         (if net.autoAcceptFirewall then "true" else "false")
         (if net.autoAcceptFiles then "true" else "false")
       ]}"
     ) cfg.networks
   );
+
+  networksWithoutKey = lib.filterAttrs (_: net: net.key == null && net.keyFile == null) cfg.networks;
+  networksWithBothKeys = lib.filterAttrs (_: net: net.key != null && net.keyFile != null) cfg.networks;
 
   applyNetworkNames = if cfg.apply.spec == null then [ ] else builtins.attrNames (cfg.apply.spec.networks or { });
   overlappingNetworks = builtins.filter (name: builtins.hasAttr name cfg.networks) applyNetworkNames;
@@ -222,15 +226,31 @@ in
       type = lib.types.attrsOf (
         lib.types.submodule {
           options = {
-            keyFile = lib.mkOption {
-              type = lib.types.str;
+            key = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
               description = ''
-                Path to a file containing a network key or invite code. Use a
-                string path on the target system (for example
+                Public network room id. This is not a secret: it is the
+                network's public key and may safely live in the Nix store. Set
+                exactly one of `key` or {option}`keyFile`.
+
+                On a closed network the join still goes through the
+                coordinator's admission gate; the room id only locates the
+                network and its signed membership record.
+              '';
+            };
+
+            keyFile = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = ''
+                Path to a file containing a secret network key or invite code.
+                Use a string path on the target system (for example
                 `"/run/secrets/rayfish-lab-key"`), not a Nix path literal: a
                 path literal would be copied into the world-readable Nix
                 store. The file is read by the root service, so it may be
-                root-only (for example a sops-nix or agenix secret).
+                root-only (for example a sops-nix or agenix secret). Set
+                exactly one of {option}`key` or `keyFile`.
               '';
             };
 
@@ -272,8 +292,9 @@ in
         one-time: an existing saved network with the same local name is left
         alone, and later removal remains `ray leave`/`ray nuke`.
 
-        The key file is read at service runtime and never enters the Nix
-        store.
+        Set exactly one of `key` (public room id) or {option}`keyFile` (secret
+        invite/key). A key file is read at service runtime and never enters the
+        Nix store; a room id is public and may be declared inline.
       '';
     };
   };
@@ -287,6 +308,14 @@ in
       {
         assertion = overlappingNetworks == [ ];
         message = "services.rayfish: networks ${builtins.concatStringsSep ", " overlappingNetworks} are declared in both `apply.spec.networks` and `networks`; `ray apply` creates networks while `networks` joins them.";
+      }
+      {
+        assertion = networksWithoutKey == { };
+        message = "services.rayfish.networks: each network needs exactly one of `key` (public room id) or `keyFile` (secret).";
+      }
+      {
+        assertion = networksWithBothKeys == { };
+        message = "services.rayfish.networks: set either `key` or `keyFile` for a network, not both.";
       }
     ];
 
@@ -419,8 +448,8 @@ in
         ${waitReady}
 
         join_network() {
-          local name="$1" keyfile="$2" hostname="$3"
-          local auto_accept_firewall="$4" auto_accept_files="$5"
+          local name="$1" key="$2" keyfile="$3" hostname="$4"
+          local auto_accept_firewall="$5" auto_accept_files="$6"
 
           if ${ray} status --json \
             | ${pkgs.jq}/bin/jq -e \
@@ -431,13 +460,24 @@ in
             return 0
           fi
 
-          local i
-          for i in $(seq 60); do
-            [ -r "$keyfile" ] && break
-            sleep 1
-          done
-          if [ ! -r "$keyfile" ]; then
-            echo "rayfish: key file for network '$name' not found: $keyfile" >&2
+          local join_key
+          if [ -n "$key" ]; then
+            join_key="$key"
+          else
+            local i
+            for i in $(seq 60); do
+              [ -s "$keyfile" ] && break
+              sleep 1
+            done
+            if [ ! -s "$keyfile" ]; then
+              echo "rayfish: network key for '$name' not found or empty: $keyfile" >&2
+              return 1
+            fi
+            join_key="$(cat "$keyfile")"
+          fi
+
+          if [ -z "$join_key" ]; then
+            echo "rayfish: network key for '$name' is empty" >&2
             return 1
           fi
 
@@ -446,7 +486,7 @@ in
           [ "$auto_accept_firewall" = "true" ] && args+=(--auto-accept-firewall)
           [ "$auto_accept_files" = "false" ] && args+=(--no-auto-accept-files)
 
-          ${ray} join "$(cat "$keyfile")" "''${args[@]}"
+          ${ray} join "$join_key" "''${args[@]}"
         }
 
         wait_ready
