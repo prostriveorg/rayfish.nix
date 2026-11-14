@@ -3,6 +3,11 @@
 A Nix flake that packages [Rayfish](https://github.com/rayfish/rayfish) and
 provides a NixOS module for running and configuring its daemon.
 
+This is ProStrive's fork of
+[smufa/rayfish.nix](https://github.com/smufa/rayfish.nix), adding a public
+room-id `key` option alongside the secret `keyFile` option. MIT licensed; see
+[LICENSE](./LICENSE).
+
 Rayfish is a peer-to-peer mesh VPN over iroh. It is currently experimental
 upstream, so treat this packaging as experimental too.
 
